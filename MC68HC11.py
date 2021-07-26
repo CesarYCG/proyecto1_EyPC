@@ -1,8 +1,5 @@
 from LeerArchivos import *
-from string import hexdigits
-from tkinter import *
-from tkinter import messagebox
-from tkinter.filedialog import *
+from string import hexdigits    # Para poder escribir valores HEX en el archivo .HEX
 
     ##=====================================================##
     ##===============CLASES DEL PROGRAMA===================##
@@ -290,11 +287,8 @@ def LDX(valor,tag,op_name):
        
     verifica_etiqueta(tag)                                           
 
-        ##=====================================================================================##
-        ##========================MNEMONICOS PARA LAS FUNCIONES================================##
-        ##==========================PARTICULARES DEL MC68HC11==================================##
-        ##=====================================================================================##
-mnemonico = {
+# Diccionario para los mnemónicos del MC68HC11 Clave:Valor
+mnemonico_dict = {
 'ABA':NOP,'ABX':NOP,'ABY':NOP, 'ADCA':LDX,'ADCB':LDX,'ADDA':LDX,'ADDB':LDX,'ADDD':LDX,'ANDA':LDX,
 'ANDB':LDX,'ASL':LDX,'ASLA':NOP, 'ASLB':NOP,'ASLD':NOP,'ASR':LDX,'ASRA':NOP,'ASRB':NOP,'BCC':BNE,
 'BCLR':BRCLR, 'BCS':BNE, 'BEQ':BNE,'BGE':BNE,'BGT':BNE,'BHI':BNE,'BHS':BNE,'BITA':LDX,'BITB':LDX,
@@ -331,49 +325,29 @@ mnemonico = {
 'tsy':NOP,'txs':NOP,'tys':NOP,'wai':NOP,'xgdx':NOP,'xgdy':NOP
 }
 
-
-
-        ##=====================================================##
-        ##===============FUNCIONES DEL PROGRAMA================##
-        ##=====================================================##
-
-#Ventana
-window=Tk()
-window.title("MC68HC11")
-window.geometry('400x230')
-window.configure(background='gray77')
-#Contenido
-welcome=Label(window,text="        BIENVENIDO          ",font=("Arial Bold", 20),background='gray77').place(x=90,y=5)
-welcome=Label(window,text="    AL COMPILADOR     ",font=("Arial Bold", 20),background='gray77').place(x=90,y=45)
-Etiqueta1= Label(window,text="1.-Ingrese el nombre del archivo con extensión *.ASC",font=("Agency FB",10),background='gray77').place(x=5,y=100)
-Etiqueta2=Label(window,text="2.-Presione el boton Complilar",font=("Agency FB",10),background='gray77').place(x=5,y=130)
-imagen=PhotoImage(file="MC68HC11_logo.png")
-fondo=Label(window,image=imagen).place(x=0,y=0)
-entrada=StringVar()
-txt = Entry(window,width=30,textvariable=entrada)
-txt.place(x=170,y=174)
-def clicked():
-    if (entrada.get()).endswith(".ASC"):
-        messagebox.showinfo('Exito','Cierre el programa para continuar')
-        return entrada.get()
+    # ..............................................
+    # ........... EJECUTANDO EL PROGRAMA ...........
+    # ..............................................
+# Pidiendo el archivo con la extensión .ASC
+while True: #Sale del flujo hasta dar el nombre correctamente
+    archivo_ASC = input("Ingrese el nombre del archivo *.ASC y presione ENTER: ")
+    if archivo_ASC.endswith(".ASC"):
+        break
     else:
-        messagebox.showinfo('Error','Archivo no valido\nDebe ser de tipo *.ASC')
-btn = Button(window,text='Complilar', command=clicked, width=15)
-btn.place(x=40,y=170)
-window.mainloop() #Todo lo de arriba se va a ejecutar hasta que se cierre 
-programa = 1
-programa=Program(clicked())
+        print("Archivo inválido, debe tener extensión .ASC; intente de nuevo")
+programa = Program(archivo_ASC) # Enviamos el archivo a la class Program   
 
 try:
-    file = open(programa.name,"r")
-    f = open(programa.name.replace('.ASC','.lst'), "w")
-    h = open(programa.name.replace('.ASC','.hex'), "w")
+    file_ASC = open(programa.name,"r")
+    file_LST = open(programa.name.replace('.ASC','.lst'), "w") # Para el archivo .LST
+    file_HEX = open(programa.name.replace('.ASC','.hex'), "w") # Para el archivo .HEX
 except:  
-    messagebox.showinfo('Error','ERROR 404 ARCHIVO NOT FOUND\nNO SE ENCONTRO EL ARCHIVO, ¡HASTA LUEGO!')
-    exit(-1)
-        
+    print("Error al tratar de leer el archivo. Vuelva a ejecutar el programa e intente de nuevo.")
+    input("Presione ENTER para continuar...")
+    raise SystemExit   # Salimos del programa
+
 #--lee linea por linea 
-for linea in file:
+for linea in file_ASC:
     first_space = True if linea[0] == ' ' or linea[0] == '\t' else False  ##Solo va a analizar las lineas que tengan un espacio o tabulación al principio
     linea = quita_comentarios(linea)
 
@@ -388,40 +362,40 @@ for linea in file:
     try:
         if len(linea)>=2:
             if linea[0] in particular or linea[1] in particular:
-                if linea[0] in mnemonico:
-                    mnemonico[linea[0]](linea[1],linea[2] if len(linea) == 3 else "sin_etiqueta",linea[0])
+                if linea[0] in mnemonico_dict:
+                    mnemonico_dict[linea[0]](linea[1],linea[2] if len(linea) == 3 else "sin_etiqueta",linea[0])
                 else:
                     raise Errores(3,programa.total_lineas,linea[0] if linea[0] in particular else linea[1])
                 linea = ''
           
 
         if len(linea) == 3:
-            if linea[1] not in mnemonico:
+            if linea[1] not in mnemonico_dict:
                 raise Errores(3,programa.total_lineas,linea[1])
          
             if linea[1] == 'FCB':
-                mnemonico[linea[1]](linea[2])
+                mnemonico_dict[linea[1]](linea[2])
             elif linea[1] == 'fcb':
-                mnemonico[linea[1]](linea[2])
+                mnemonico_dict[linea[1]](linea[2])
             else:
-                mnemonico[linea[1]](linea[2], linea[0],linea[1])
+                mnemonico_dict[linea[1]](linea[2], linea[0],linea[1])
         elif len(linea) == 2:
-            if linea[0] in mnemonico:
+            if linea[0] in mnemonico_dict:
                 if linea[1] in programa.etiqueta:
-                    mnemonico[linea[0]]("no_valor", linea[1],linea[0])
+                    mnemonico_dict[linea[0]]("no_valor", linea[1],linea[0])
                 elif linea[0] == 'FCB':
-                    mnemonico[linea[0]](linea[1])
+                    mnemonico_dict[linea[0]](linea[1])
                 elif linea[0] == 'fcb':
-                    mnemonico[linea[0]](linea[1])
+                    mnemonico_dict[linea[0]](linea[1])
                 else:
-                    mnemonico[linea[0]](linea[1], "sin_etiqueta",linea[0])
-            elif linea[1] in mnemonico:
-                mnemonico[linea[1]]("no_valor", linea[0],linea[1])
+                    mnemonico_dict[linea[0]](linea[1], "sin_etiqueta",linea[0])
+            elif linea[1] in mnemonico_dict:
+                mnemonico_dict[linea[1]]("no_valor", linea[0],linea[1])
             else:
                 raise Errores(3,programa.total_lineas,linea[0])
         elif len(linea) == 1:
-            if linea[0] in mnemonico and first_space:
-                mnemonico[linea[0]]("no_valor", "sin_etiqueta",linea[0])
+            if linea[0] in mnemonico_dict and first_space:
+                mnemonico_dict[linea[0]]("no_valor", "sin_etiqueta",linea[0])
             elif not first_space:
                 programa.etiqueta.update({linea[0]:programa.memory_posicion})
             else:
@@ -485,64 +459,64 @@ try:
         indice+=aumentar_espacios
         if item in programa.org_memoria:               #obtenemos una lista de tuplas con método item
         ###Aquí se da el formato al archivo lst
-            f.write(str(indice).ljust(4)+':'.ljust(8)+item.ljust(12)+':'+programa.cod_objeto[indice]+'\n')
+            file_LST.write(str(indice).ljust(4)+':'.ljust(8)+item.ljust(12)+':'+programa.cod_objeto[indice]+'\n')
             programa.bullet = item
         else:
             if item in programa.var.values() and programa.bullet == '0':
-                f.write(str(indice).ljust(4)+':'.ljust(8)+item.zfill(4)+':'.rjust(9)+programa.cod_objeto[indice]+'\n')
+                file_LST.write(str(indice).ljust(4)+':'.ljust(8)+item.zfill(4)+':'.rjust(9)+programa.cod_objeto[indice]+'\n')
             elif (programa.cod_objeto[indice][0]!=' ' and programa.cod_objeto[indice][0]!='\t') and len(quita_comentarios(programa.cod_objeto[indice])) == 1:
                 while (programa.cod_objeto[indice][0]!=' ' and programa.cod_objeto[indice][0]!='\t') and len(quita_comentarios(programa.cod_objeto[indice])) == 1:
-                    f.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+''.ljust(12)+':'+programa.cod_objeto[indice]+'\n')  #ETIQUETAS
+                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+''.ljust(12)+':'+programa.cod_objeto[indice]+'\n')  #ETIQUETAS
                     indice+=1
                     aumentar_espacios+=1
                 if(len(item)==2):
-                    f.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(9)+':'+programa.cod_objeto[indice]+'\n')
+                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(9)+':'+programa.cod_objeto[indice]+'\n')
                     set_bullet(len(item))
                 elif(len(item)==4):
-                    f.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(7)+':'+programa.cod_objeto[indice]+'\n')
+                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(7)+':'+programa.cod_objeto[indice]+'\n')
                     set_bullet(len(item))
                 elif(len(item)==8):
-                    f.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(3)+':'+programa.cod_objeto[indice]+'\n')
+                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(3)+':'+programa.cod_objeto[indice]+'\n')
                     set_bullet(len(item))
 
                 else:
-                    f.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(5)+':'+programa.cod_objeto[indice]+'\n')
+                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(5)+':'+programa.cod_objeto[indice]+'\n')
                     set_bullet(len(item))
             else:
                 if(len(item)==2):
-                    f.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(9)+':'+programa.cod_objeto[indice]+'\n')
+                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(9)+':'+programa.cod_objeto[indice]+'\n')
                     set_bullet(len(item))
                 elif(len(item)==4):
-                    f.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(7)+':'+programa.cod_objeto[indice]+'\n')
+                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(7)+':'+programa.cod_objeto[indice]+'\n')
                     set_bullet(len(item))
                 elif(len(item)==8):
-                    f.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(3)+':'+programa.cod_objeto[indice]+'\n')
+                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(3)+':'+programa.cod_objeto[indice]+'\n')
                     set_bullet(len(item))
                 else:
-                    f.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(5)+':'+programa.cod_objeto[indice]+'\n')
+                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(5)+':'+programa.cod_objeto[indice]+'\n')
                     set_bullet(len(item))
     indice+=1
     while indice< len(programa.cod_objeto) and 'END' not in quita_comentarios(programa.cod_objeto[indice-1]):
         if programa.cod_objeto[indice][0]!=' ' and programa.cod_objeto[indice][0]!='\t':
-          f.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+item.ljust(12)+':'+programa.cod_objeto[indice]+'\n')
+          file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+item.ljust(12)+':'+programa.cod_objeto[indice]+'\n')
         else:
-            f.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+''.ljust(12)+':'+programa.cod_objeto[indice]+'\n')
+            file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+''.ljust(12)+':'+programa.cod_objeto[indice]+'\n')
         indice+=1
-#dice el error y en la linea de codigo
+# Indica el error y el numero de linea donde sucedio
 except KeyError:
     print('Keyerror in linea'+str(indice)+item+programa.cod_objeto[indice-1])
 #para tabla de simbolos
 symbol_table = programa.etiqueta.copy()
 symbol_table.update(programa.var)
 symbol_table.update(programa.salto_etiqueta)
-f.write('\nTabla de Simbolos, total: '+str(len(symbol_table))+'\n')
+file_LST.write('\nTabla de Simbolos, total: '+str(len(symbol_table))+'\n')
 for key in sorted(symbol_table):
     if key in programa.etiqueta:
-        f.write(key+'\t'+hex(programa.etiqueta[key])[2:].upper()+'\n')
+        file_LST.write(key+'\t'+hex(programa.etiqueta[key])[2:].upper()+'\n')
     elif key in programa.salto_etiqueta:
-        f.write(key+'\t'+hex(programa.salto_etiqueta[key])[2:].upper()+'\n')
+        file_LST.write(key+'\t'+hex(programa.salto_etiqueta[key])[2:].upper()+'\n')
     else:
-        f.write(key+'\t'+('' if len(programa.var[key])==4 else '00' )+programa.var[key]+'\n')
+        file_LST.write(key+'\t'+('' if len(programa.var[key])==4 else '00' )+programa.var[key]+'\n')
 
 bullet = 0
 posicion = 1
@@ -551,26 +525,25 @@ for item in programa.memoria:
     if item in programa.org_memoria:
         posicion = 1
         bullet = item
-        h.write(('\n' if bullet != programa.org_memoria[0] else '<')+bullet+'> ')
+        file_HEX.write(('\n' if bullet != programa.org_memoria[0] else '<')+bullet+'> ')
     elif bullet != 0:
         while posicion<=16 and item != '':
-            h.write(item[:2]+' ')
+            file_HEX.write(item[:2]+' ')
             item = item.replace(item[:2],'')
             posicion += 1
         if posicion > 16:
             posicion = 1
             bullet = str(hex(int(bullet,16)+16)[2:].upper()) #uppSer retorna la cadena en mayusculas en este caso el hexa
-            h.write('\n<'+bullet+'> ')
+            file_HEX.write('\n<'+bullet+'> ')
             while item != '':
-                h.write(item[:2]+' ')
+                file_HEX.write(item[:2]+' ')
                 item = item.replace(item[:2],'')
                 posicion += 1
 
-
-#cierra flujos 
-f.close()
-h.close()
-file.close()
+# Cierra los archivos ASC, LST y HEX una vez que terminó de leer / escribir
+file_LST.close()
+file_HEX.close()
+file_ASC.close()
 
 #--Genera el archivo .lst 
 #--Genera el archivo .hex 
