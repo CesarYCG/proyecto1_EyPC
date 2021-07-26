@@ -1,52 +1,45 @@
-from LeerArchivos import *
+from LeerArchivos import *      # Traemos LeerArchivos.py
 from string import hexdigits    # Para poder escribir valores HEX en el archivo .HEX
 
-    ##=====================================================##
-    ##===============CLASES DEL PROGRAMA===================##
-    
 
+###El fist_espace es el que determina como leer el archivo, es decir que lineas tomar o no para el analisis, las que no tienen espacio al principio no las lee ya que solo son nombres de etiquetas, constantes o comentario, variables, etc.
+# Para leer el archivo el programa determina que lineas analizar. 
+# Aquellas variables sin espacios en blanco al princio no seran leidas
+# pues en el formato del MC68HC11 son consideradas nombres de etiquetas, comentarios, constantes o variables.
 
-###El fist_espace es el que determina como leer el archivo, es decir que lineas tomar o no para el analisis, las que 
-#no tienen espacio al principio no las lee ya que solo son nombres de etiquetas, constantes o comentario, variables, etc.
-class Program(object):
-    #define variable a usar, metodos
-    def __init__(self,name):
-        
-        self.name = name
-        self.comienzo = False
-        self.final = False
-        self.start_memory = '0'
-        self.memory_posicion = 0
-        self.memoria = []
-        self.org_memoria = []
-        self.bullet = self.start_memory
-        self.num_bullet = 0
-        self.var = {}
-        self.linea_posicion = 0
-        self.etiqueta = {}
-        self.cod_objeto = {}
-        self.total_lineas = 0
-        self.errores = 0
-        self.num_codigo = 0
-        self.salto_etiqueta = {}
-
-class Errores(BaseException):                                   #Calculando cuantos errores hay en el programa
+# Clase que indicara cuantos Errores suceden en el programa
+class Errores(BaseException):   # Hereda de BaseException para comportarse como un error.
     def __init__(self,codigo,error_linea,op_name = ''):
-        self.error_linea = str(error_linea)                     #La palabra que este mal se guardará en un a cadena
+        self.error_linea = str(error_linea)                     # Las palabras corruptas se guardan en Strings
         self.op_name = op_name
         self.codigo = codigo
         programa.errores +=1
 
+class Program(object):
+    # Definiremos variables y métodos a utilizar de la clase
+    def __init__(self,name):               # Método Constructor que tendrá el codigo leido
+        self.name = name                   # Guarda el nombre del archivo leido, lo usa para el HEX y LST
+        self.comienzo = False              # Variable que actuara como ORG, marca el inicio del programa
+        self.final = False                 # Nos marcara como END el fin de lectura del codigo en el archivo
+        self.start_memory = '0'            # Indicara el inicio del programa en HEXA
+        self.bullet = self.start_memory    # Var que nos ayudara a dar formato a los archivos
+        self.memory_posicion = 0           # Nos ayudará a dar los saltos en el direccionamiento REL
+        self.memoria = []                  # Lista que contendrá las direcciones de memoria generadas
+        self.org_memoria = []              # Lista para las direcciones en HEX
+        self.var = {}                      # Diccionario que contendra variables y su nombre
+        self.linea_posicion = 0            # Variable para leer linea por linea
+        self.etiqueta = {}                 # Diccionario para las etiquetas (tag) y su posicion en memoria 
+        self.cod_objeto = {}               # Diccionario para construir el codigo objeto 
+        self.total_lineas = 0              # Variable que cuenta el número total de líneas que tiene nuestro codigo
+        self.errores = 0                   # Variable que cuenta el número total de erroress que sucedieron
+        self.salto_etiqueta = {}           # Diccionario que contiene los saltos de etiqueta y a que direccion apuntan
 
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~ FUNCIONES Y DIRECTIVAS DEL ~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~ MC68HC11 ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        ##======================================================================================##
-        ##=========================FUNCIONES PARTICULARES DEL===================================##
-        ##=========================LOS MNEMONICOS y DIRECTIVAS==================================##
-        ##================================DEL MC68HC11==========================================##
-        ##======================================================================================##
-
-
-def BNE(valor,tag,op_name):
+def BNE(valor,tag,op_name):     # Branch Not Equal - Verifica si NO es igual a 0 y redirecciona si no lo es
     
     if valor == "no_valor":
         valor = tag
@@ -93,7 +86,7 @@ def EQU(valor,name,op_name):
     programa.var.update({name:valor.replace('$','')})             #agregamos el valor a nombre en el diccionario
     programa.memoria.append(valor.replace('$',''))                #con append se agrega el valor a la lista
 
-def END(valor,tag,op_name):
+def END(valor,tag,op_name):     # Con END marcamos el fin de todas las instrucciones dadas
     
     programa.final = True
     programa.cod_objeto.update({programa.total_lineas:op_name.ljust(8)+(valor if valor != 'no_valor' else '')})
@@ -143,12 +136,13 @@ def NOP(valor, tag,op_name):
     programa.memoria.append(valuesINH[op_name])
     verifica_etiqueta(tag)   
     
-    
-        ##=====================================================##
-        ##===============FUNCIONES DEL PROGRAMA================##
-        ##=====================================================##
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~ FUNCIONES DEL COMPILADOR ~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-def INICIO(inicia_memoria_org,tag,op_name):                          # valor que toma ORG en memoria
+def INICIO(inicia_memoria_org,tag,op_name):     # Llamado ORG, define el inicio del programa
     if not programa.comienzo:
         programa.start_memory = clr_valor(inicia_memoria_org)      #inicio programa Memoria en base hexadecimal
         programa.memory_posicion = int(programa.start_memory,16) #Nos devuelve al valor del inicio del programa en entero
@@ -236,14 +230,11 @@ def quita_comentarios(linea):
                 linea.pop(x)                                     #pop() Devuelve el ultimo valor de la linea
     return linea                                               
 
-
-
-
-        ##======================================================================================##
-        ##==============================FUNCIONES PARA LOS =====================================##
-        ##===========================MODOS DE DIRECCIONAMIENTO==================================##
-        ##================================DEL MC68HC11==========================================##
-        ##======================================================================================##
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~ FUNCIONES DEL MODO DE ~~~~~~~~~~~
+    # ~~~~~~~~~~~ DIRECCIONAMIENTO PARA ~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~ EL MC68HC1 ~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def LDX(valor,tag,op_name):                                       
     if clr_valor(valor) in programa.var:                      
@@ -325,9 +316,10 @@ mnemonico_dict = {
 'tsy':NOP,'txs':NOP,'tys':NOP,'wai':NOP,'xgdx':NOP,'xgdy':NOP
 }
 
-    # ..............................................
-    # ........... EJECUTANDO EL PROGRAMA ...........
-    # ..............................................
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~ EJECUTANDO EL PROGRAMA ~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 # Pidiendo el archivo con la extensión .ASC
 while True: #Sale del flujo hasta dar el nombre correctamente
     archivo_ASC = input("Ingrese el nombre del archivo *.ASC y presione ENTER: ")
@@ -335,7 +327,8 @@ while True: #Sale del flujo hasta dar el nombre correctamente
         break
     else:
         print("Archivo inválido, debe tener extensión .ASC; intente de nuevo")
-programa = Program(archivo_ASC) # Enviamos el archivo a la class Program   
+programa = Program(archivo_ASC) # Creamos objeto 'programa' mandando como parámetro 'archivo_ASC'
+# A partir de ahora la variable 'programa'   
 
 try:
     file_ASC = open(programa.name,"r")
@@ -427,7 +420,7 @@ for indice,entry in enumerate(programa.memoria):
         if programa.salto_etiqueta[entry][0] in valuesREL.values() or len(programa.salto_etiqueta[entry]) == 5:
             try:
                 programa.memoria[indice]= str(programa.salto_etiqueta[entry][0])+salto_Relativo(programa.etiqueta[entry],programa.salto_etiqueta[entry][3])
-            except Errores as e:
+            except Errores:
                 print("ERROR 008 SALTO RELATIVO MUY LEJANO"+str(programa.salto_etiqueta[entry][1]))
         else:
             programa.memoria[indice]= str(programa.salto_etiqueta[entry][0])+hex(programa.etiqueta[entry])[2::].upper()
