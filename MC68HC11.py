@@ -1,5 +1,5 @@
 from LeerArchivos import *      # Traemos LeerArchivos.py
-from string import hexdigits    # Para poder escribir valores HEX en el archivo .HEX
+from string import hexdigits    # Para poder escribir valores .s19 en el archivo 
 
 
 ###El fist_espace es el que determina como leer el archivo, es decir que lineas tomar o no para el analisis, las que no tienen espacio al principio no las lee ya que solo son nombres de etiquetas, constantes o comentario, variables, etc.
@@ -17,19 +17,19 @@ class Errores(BaseException):   # Hereda de BaseException para comportarse como 
 
 class Program(object):
     # Definiremos variables y métodos a utilizar de la clase
-    def __init__(self,name):               # Método Constructor que tendrá el codigo leido
-        self.name = name                   # Guarda el nombre del archivo leido, lo usa para el HEX y LST
+    def __init__(self,name_archivo):               # Método Constructor que tendrá el codigo leido
+        self.name_archivo = name_archivo                   # Guarda el nombre del archivo leido, lo usa para el HEX y LST
         self.comienzo = False              # Variable que actuara como ORG, marca el inicio del programa
         self.final = False                 # Nos marcara como END el fin de lectura del codigo en el archivo
-        self.start_memory = '0'            # Indicara el inicio del programa en HEXA
-        self.bullet = self.start_memory    # Var que nos ayudara a dar formato a los archivos
-        self.memory_posicion = 0           # Nos ayudará a dar los saltos en el direccionamiento REL
+        self.inicio_memoria = '0'            # Indicara el inicio del programa en HEXA
+        self.cambio_formato = self.inicio_memoria    # Var que nos ayudara a dar formato a los archivos
+        self.posicion_memoria = 0           # Nos ayudará a dar los saltos en el direccionamiento REL
         self.memoria = []                  # Lista que contendrá las direcciones de memoria generadas
         self.org_memoria = []              # Lista para las direcciones en HEX
         self.var = {}                      # Diccionario que contendra variables y su nombre
         self.linea_posicion = 0            # Variable para leer linea por linea
         self.etiqueta = {}                 # Diccionario para las etiquetas (tag) y su posicion en memoria 
-        self.cod_objeto = {}               # Diccionario para construir el codigo objeto 
+        self.codigo_objeto = {}               # Diccionario para construir el codigo objeto 
         self.total_lineas = 0              # Variable que cuenta el número total de líneas que tiene nuestro codigo
         self.errores = 0                   # Variable que cuenta el número total de erroress que sucedieron
         self.salto_etiqueta = {}           # Diccionario que contiene los saltos de etiqueta y a que direccion apuntan
@@ -44,97 +44,97 @@ def BNE(valor,tag,op_name):     # Branch Not Equal - Verifica si NO es igual a 0
     if valor == "no_valor":
         valor = tag
     if valor in programa.etiqueta:
-        programa.memoria.append(valuesREL[op_name]+salto_Relativo(programa.etiqueta[tag],programa.memory_posicion))
+        programa.memoria.append(dict_REL[op_name]+fun_salto_relativo(programa.etiqueta[tag],programa.posicion_memoria))
     elif valor in programa.salto_etiqueta:
-        programa.salto_etiqueta.update({valor:[valuesREL[op_name],programa.total_lineas,programa.salto_etiqueta[valor][2]+1,programa.memory_posicion+2]})
+        programa.salto_etiqueta.update({valor:[dict_REL[op_name],programa.total_lineas,programa.salto_etiqueta[valor][2]+1,programa.posicion_memoria+2]})
         programa.memoria.append(valor)
     else:
-        programa.salto_etiqueta.update({valor:[valuesREL[op_name],programa.total_lineas,1,programa.memory_posicion]})
+        programa.salto_etiqueta.update({valor:[dict_REL[op_name],programa.total_lineas,1,programa.posicion_memoria]})
         programa.memoria.append(valor)
-    programa.memory_posicion+=2
+    programa.posicion_memoria+=2
     if tag != "sin_etiqueta" and tag not in programa.etiqueta:
-        programa.etiqueta.update({tag:programa.memory_posicion})
+        programa.etiqueta.update({tag:programa.posicion_memoria})
         
 def BRCLR(valor,tag,op_name):
     
     mnem_extra = 0
     if 'X' in valor or 'Y' in valor:
         if 'X' in valor:
-            valor = particular[op_name][1]+clr_valor(valor)
+            valor = particular[op_name][1]+fun_clr_valor(valor)
         else:
-            valor = particular[op_name][2]+clr_valor(valor)
+            valor = particular[op_name][2]+fun_clr_valor(valor)
     else:
-        valor = particular[op_name][0]+clr_valor(valor)
+        valor = particular[op_name][0]+fun_clr_valor(valor)
     programa.memoria.append(valor)                               #agregamos el valor de BRCLR a la lista 
-    programa.memory_posicion += int(len(programa.memoria[-1])/2)
+    programa.posicion_memoria += int(len(programa.memoria[-1])/2)
     if tag in programa.etiqueta:
-        programa.memoria[-1]=programa.memoria[-1]+salto_Relativo(programa.etiqueta[tag],programa.memory_posicion-1)
+        programa.memoria[-1]=programa.memoria[-1]+fun_salto_relativo(programa.etiqueta[tag],programa.posicion_memoria-1)
         mnem_extra += 1
     elif tag in programa.salto_etiqueta:
-        programa.salto_etiqueta.update({tag:[valor,programa.total_lineas,programa.salto_etiqueta[valor][2]+1,programa.memory_posicion,op_name]})
+        programa.salto_etiqueta.update({tag:[valor,programa.total_lineas,programa.salto_etiqueta[valor][2]+1,programa.posicion_memoria,op_name]})
         programa.memoria[-1] = tag
         mnem_extra += 1
     elif tag != "sin_etiqueta":
-        programa.salto_etiqueta.update({tag:[valor,programa.total_lineas,1,programa.memory_posicion,op_name]})
+        programa.salto_etiqueta.update({tag:[valor,programa.total_lineas,1,programa.posicion_memoria,op_name]})
         programa.memoria[-1] = tag
-    programa.memory_posicion += mnem_extra
+    programa.posicion_memoria += mnem_extra
 
-def EQU(valor,name,op_name):
+def EQU(valor,name_archivo,op_name):
     
     if int(valor.replace('$',''),16)<=int('FF',16):
         valor = valor[3:]
-    programa.var.update({name:valor.replace('$','')})             #agregamos el valor a nombre en el diccionario
+    programa.var.update({name_archivo:valor.replace('$','')})             #agregamos el valor a nombre en el diccionario
     programa.memoria.append(valor.replace('$',''))                #con append se agrega el valor a la lista
 
 def END(valor,tag,op_name):     # Con END marcamos el fin de todas las instrucciones dadas
     
     programa.final = True
-    programa.cod_objeto.update({programa.total_lineas:op_name.ljust(8)+(valor if valor != 'no_valor' else '')})
+    programa.codigo_objeto.update({programa.total_lineas:op_name.ljust(8)+(valor if valor != 'no_valor' else '')})
 
 def FCB(valor1):
     
-    programa.memoria.append(clr_valor(valor1)+' ')
+    programa.memoria.append(fun_clr_valor(valor1)+' ')
 
-def JMP(valor,tag,op_name):
+def JMP(valor,tag,op_name):           # Para realizar los saltos en memoria
     
     if valor == "no_valor":
         valor = tag
     if valor in programa.salto_etiqueta:
-        programa.salto_etiqueta.update({valor:[valuesEXT[op_name],programa.total_lineas,programa.salto_etiqueta[valor][2]+1]})
+        programa.salto_etiqueta.update({valor:[dict_EXT[op_name],programa.total_lineas,programa.salto_etiqueta[valor][2]+1]})
         programa.memoria.append(valor)
-        programa.memory_posicion += 3
+        programa.posicion_memoria += 3
     elif valor in programa.etiqueta:
-        programa.memoria.append(valuesEXT[op_name]+hex(programa.etiqueta[tag]).upper()[2::])
-        programa.memory_posicion += 3
-    elif clr_valor(valor).isnumeric() or clr_valor(valor) in programa.var:
-        if (len(clr_valor(valor)) != 2 or len(clr_valor(valor)) != 4) and clr_valor(valor) not in programa.var:
+        programa.memoria.append(dict_EXT[op_name]+hex(programa.etiqueta[tag]).upper()[2::])
+        programa.posicion_memoria += 3
+    elif fun_clr_valor(valor).isnumeric() or fun_clr_valor(valor) in programa.var:
+        if (len(fun_clr_valor(valor)) != 2 or len(fun_clr_valor(valor)) != 4) and fun_clr_valor(valor) not in programa.var:
             raise Errores(1,programa.total_lineas)
         if ',X' in valor:
-            programa.memoria.append(indiceadox[op_name]+clr_valor(valor))
-            programa.memory_posicion += 2
+            #programa.memoria.append(indiceadox[op_name]+fun_clr_valor(valor))
+            programa.posicion_memoria += 2
         elif ',Y' in valor:
-            programa.memoria.append(indiceadoy[op_name]+clr_valor(valor))
-            programa.memory_posicion += 3
-        elif len(clr_valor(valor)) == 2:
-            programa.memoria.append(valuesDIR[op_name]+clr_valor(valor))
-            programa.memory_posicion += 2
+            #programa.memoria.append(indiceadoy[op_name]+fun_clr_valor(valor))
+            programa.posicion_memoria += 3
+        elif len(fun_clr_valor(valor)) == 2:
+            programa.memoria.append(dict_DIR[op_name]+fun_clr_valor(valor))
+            programa.posicion_memoria += 2
         else:
             valor = programa.var[valor]
             while len(valor) < 4:
                 valor = '0'+valor
-            programa.memoria.append(valuesEXT[op_name]+valor)
-            programa.memory_posicion += 3
+            programa.memoria.append(dict_EXT[op_name]+valor)
+            programa.posicion_memoria += 3
     else:
-        programa.salto_etiqueta.update({valor:[valuesEXT[op_name],programa.total_lineas,1]})
+        programa.salto_etiqueta.update({valor:[dict_EXT[op_name],programa.total_lineas,1]})
         programa.memoria.append(valor)
-        programa.memory_posicion += 3
+        programa.posicion_memoria += 3
 
 def NOP(valor, tag,op_name):
     
     if valor != "no_valor":
         raise Errores(8,programa.total_lineas)
-    programa.memoria.append(valuesINH[op_name])
-    verifica_etiqueta(tag)   
+    programa.memoria.append(dict_INH[op_name])
+    fun_verifica_etiqueta(tag)   
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -144,29 +144,29 @@ def NOP(valor, tag,op_name):
 
 def INICIO(inicia_memoria_org,tag,op_name):     # Llamado ORG, define el inicio del programa
     if not programa.comienzo:
-        programa.start_memory = clr_valor(inicia_memoria_org)      #inicio programa Memoria en base hexadecimal
-        programa.memory_posicion = int(programa.start_memory,16) #Nos devuelve al valor del inicio del programa en entero
+        programa.inicio_memoria = fun_clr_valor(inicia_memoria_org)      #inicio programa Memoria en base hexadecimal
+        programa.posicion_memoria = int(programa.inicio_memoria,16) #Nos devuelve al valor del inicio del programa en entero
         programa.comienzo = True
-    verifica_longitud(programa.start_memory, 2)
-    auxiliar = int(clr_valor(inicia_memoria_org), 16)
+    fun_verifica_long(programa.inicio_memoria, 2)
+    auxiliar = int(fun_clr_valor(inicia_memoria_org), 16)
     programa.org_memoria.append(hex(auxiliar).upper()[2::])
     programa.memoria.append(hex(auxiliar).upper()[2::])
     
-def set_bullet(item):
-    memoria = int(programa.bullet, 16)          #Memoria en base hexadecimal 
-    if item == 8:
+def fun_cambio_formato(item_codigo):                                   # 
+    memoria = int(programa.cambio_formato, 16)          # Memoria en hexa
+    if item_codigo == 8:
         temp_aux = 4
-    elif item == 6:
+    elif item_codigo == 6:
         temp_aux = 3
-    elif item == 4:
+    elif item_codigo == 4:
         temp_aux = 2
     else:
         temp_aux = 1
     memoria += int(temp_aux)
-    programa.bullet = hex(memoria)[2::].upper()
+    programa.cambio_formato = hex(memoria)[2::].upper()
 
-def clr_valor(valor):                                        #quita caracteres que no se deben mostrar en el lst
-    valor = valor.replace('#','')                                #.replace() sustituye la variable encontrada por nada
+def fun_clr_valor(valor):                          # Quitamos caracteres para el LST
+    valor = valor.replace('#','')              # con replace limpiamos la linea
     valor = valor.replace('$','')
     valor = valor.replace(',X','')
     valor = valor.replace(',Y','')
@@ -178,26 +178,25 @@ def clr_valor(valor):                                        #quita caracteres q
                 valor_hex = False
 
         if valor_hex:
-            if len(valor)==3 or len(valor)==1:                  # para palabras de 4 bytes
+            if len(valor)==3 or len(valor)==1:                  # Para cadenas de 4bytes
                 while len(valor)!=4:
                     valor = '0'+valor
     return valor
 
-def verifica_longitud(valor,byts):                                    #lanza el error si el operando es erroneo, no hay congruencia en etiquetas y/o constantes
+def fun_verifica_long(valor,byts):          # Lanza un error raise al detectar operando incorrecto
     if len(valor) != byts*2:
         raise Errores(1,programa.total_lineas)
     elif not valor.isnumeric() and (valor not in programa.etiqueta or valor not in programa.var):
         raise Errores(6 if valor not in programa.var else 4,programa.total_lineas)
 
-
-def verifica_etiqueta(tag):                                         #verifica etiquetas
+def fun_verifica_etiqueta(tag):                                         #verifica etiquetas
     if tag != "sin_etiqueta" and tag not in programa.etiqueta:
-        programa.etiqueta.update({tag:programa.memory_posicion})    #agrega el valor de la etiqueta
-    programa.memory_posicion += int(len(programa.memoria[-1])/2)
+        programa.etiqueta.update({tag:programa.posicion_memoria})    #agrega el valor de la etiqueta
+    programa.posicion_memoria += int(len(programa.memoria[-1])/2)
 
-def salto_Relativo(X,Y):                                        #hace saltos valuesRELs
+def fun_salto_relativo(X,Y):                                        #hace saltos valuesRELs
     salto_R = X - Y - 2
-    if abs(salto_R)>127:
+    if abs(salto_R)>127: # Mas allá de 127 el salto es MUY LEJANO
         raise Errores(2,programa.total_lineas)
     if salto_R<0:
         salto_R = int(bin(salto_R)[3::],2) - (1 << 8)
@@ -205,7 +204,6 @@ def salto_Relativo(X,Y):                                        #hace saltos val
     while len(salto_R)<2:
         salto_R = '0'+salto_R
     return salto_R
-
 
 def ajuste_De_Linea(lista,first_space):                              #aquí se ajustan los colores de la impresión
     if len(lista)==3 and first_space:                            
@@ -224,9 +222,9 @@ def ajuste_De_Linea(lista,first_space):                              #aquí se a
 ##Esta función regresa la linea sin los comentarios
 def quita_comentarios(linea):
     linea = linea.split()                                       #split separa las palabras que encuentra en una linea
-    for item in linea:
-        if '*' in item:
-            for x in range(len(linea)-1,linea.index(item)-1,-1): #recorre la linea en un intervalo de inicio hasta el comentario
+    for item_codigo in linea:
+        if '*' in item_codigo:
+            for x in range(len(linea)-1,linea.index(item_codigo)-1,-1): #recorre la linea en un intervalo de inicio hasta el comentario
                 linea.pop(x)                                     #pop() Devuelve el ultimo valor de la linea
     return linea                                               
 
@@ -237,46 +235,46 @@ def quita_comentarios(linea):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def LDX(valor,tag,op_name):                                       
-    if clr_valor(valor) in programa.var:                      
+    if fun_clr_valor(valor) in programa.var:                      
         if '#' in valor:
-            programa.memoria.append(valuesIMM[op_name]+programa.var[clr_valor(valor)]) #Se manda 
-        elif len(programa.var[clr_valor(valor)])==2 and op_name in valuesDIR:                  
-            programa.memoria.append(valuesDIR[op_name]+programa.var[clr_valor(valor)])
-        elif len(programa.var[clr_valor(valor)])==4:
-            programa.memoria.append(valuesEXT[op_name]+programa.var[clr_valor(valor)])
+            programa.memoria.append(dict_IMM[op_name]+programa.var[fun_clr_valor(valor)]) #Se manda 
+        elif len(programa.var[fun_clr_valor(valor)])==2 and op_name in dict_DIR:                  
+            programa.memoria.append(dict_DIR[op_name]+programa.var[fun_clr_valor(valor)])
+        elif len(programa.var[fun_clr_valor(valor)])==4:
+            programa.memoria.append(dict_EXT[op_name]+programa.var[fun_clr_valor(valor)])
         else:
-            programa.memoria.append(valuesEXT[op_name]+programa.var[clr_valor(valor)]) #OPTIMIZACIÓN DE CÓDIGO
-    elif '#' in valor:                                            #valuesIMM
-        valor = clr_valor(valor)
+            programa.memoria.append(dict_EXT[op_name]+programa.var[fun_clr_valor(valor)]) #OPTIMIZACIÓN DE CÓDIGO
+    elif '#' in valor:                                            #dict_IMM
+        valor = fun_clr_valor(valor)
         if '\'' in valor:
-            programa.memoria.append(valuesIMM[op_name]+hex(ord(valor.replace('\'','')))[2::].upper())
+            programa.memoria.append(dict_IMM[op_name]+hex(ord(valor.replace('\'','')))[2::].upper())
         elif len(valor) == 2 or len(valor) == 4:
-            programa.memoria.append(valuesIMM[op_name]+valor)
+            programa.memoria.append(dict_IMM[op_name]+valor)
         else:
             raise Errores(1,programa.total_lineas)
     elif ',' in valor:                                            #INDEXADO
         if 'X' in valor:#X
-            valor = clr_valor(valor)
-            verifica_longitud(valor, 1)
-            programa.memoria.append(valuesINDX[op_name]+valor)
+            valor = fun_clr_valor(valor)
+            fun_verifica_long(valor, 1)
+            programa.memoria.append(dict_INDX[op_name]+valor)
         elif 'Y' in valor:#Y
-            valor = clr_valor(valor)
-            verifica_longitud(valor, 1)
-            programa.memoria.append(valuesINDY[op_name]+valor)
+            valor = fun_clr_valor(valor)
+            fun_verifica_long(valor, 1)
+            programa.memoria.append(dict_INDY[op_name]+valor)
         else:
             raise Errores(7,programa.total_lineas)
     elif '$' in valor:                                            #DIRECTO O EXTENDIDO
-        valor = clr_valor(valor)
+        valor = fun_clr_valor(valor)
         if len(valor) == 2:
-            programa.memoria.append(valuesDIR[op_name]+valor.replace('$',''))
+            programa.memoria.append(dict_DIR[op_name]+valor.replace('$',''))
         elif len(valor) == 4:
-            programa.memoria.append(valuesEXT[op_name]+valor.replace('$',''))
+            programa.memoria.append(dict_EXT[op_name]+valor.replace('$',''))
         else:
             raise Errores(1,programa.total_lineas)
     elif valor == "no_valor":
         raise Errores(7,programa.total_lineas)
        
-    verifica_etiqueta(tag)                                           
+    fun_verifica_etiqueta(tag)                                           
 
 # Diccionario para los mnemónicos del MC68HC11 Clave:Valor
 mnemonico_dict = {
@@ -331,9 +329,9 @@ programa = Program(archivo_ASC) # Creamos objeto 'programa' mandando como parám
 # A partir de ahora la variable 'programa'   
 
 try:
-    file_ASC = open(programa.name,"r")
-    file_LST = open(programa.name.replace('.ASC','.lst'), "w") # Para el archivo .LST
-    file_HEX = open(programa.name.replace('.ASC','.hex'), "w") # Para el archivo .HEX
+    file_ASC = open(programa.name_archivo,"r")
+    file_LST = open(programa.name_archivo.replace('.ASC','.lst'), "w") # Para el archivo .LST
+    file_s19 = open(programa.name_archivo.replace('.ASC','.s19'), "w") # Para el archivo .HEX
 except:  
     print("Error al tratar de leer el archivo. Vuelva a ejecutar el programa e intente de nuevo.")
     input("Presione ENTER para continuar...")
@@ -343,14 +341,11 @@ except:
 for linea in file_ASC:
     first_space = True if linea[0] == ' ' or linea[0] == '\t' else False  ##Solo va a analizar las lineas que tengan un espacio o tabulación al principio
     linea = quita_comentarios(linea)
-
-  
     programa.total_lineas+=1
-    
     
     if len(linea)>0:
         programa.linea_posicion+=1                                                              #ajuste de linea
-        programa.cod_objeto.update({programa.linea_posicion:ajuste_De_Linea(linea,first_space)})  
+        programa.codigo_objeto.update({programa.linea_posicion:ajuste_De_Linea(linea,first_space)})  
       
     try:
         if len(linea)>=2:
@@ -390,36 +385,36 @@ for linea in file_ASC:
             if linea[0] in mnemonico_dict and first_space:
                 mnemonico_dict[linea[0]]("no_valor", "sin_etiqueta",linea[0])
             elif not first_space:
-                programa.etiqueta.update({linea[0]:programa.memory_posicion})
+                programa.etiqueta.update({linea[0]:programa.posicion_memoria})
             else:
                 raise Errores(3,programa.total_lineas,linea[0])
     #errores
     except KeyError:
-        print("ERROR 007 MAGNITUD DE OPERANDO ERRONEA"+str(programa.total_lineas)+' K')
-    except Errores as e:
-        if e.codigo == 1:
-            print("ERROR 007 MAGNITUD DE OPERANDO ERRONEA "+e.error_linea)
-        elif e.codigo == 2:
-            print("ERROR 008 SALTO RELATIVO MUY LEJANO"+e.error_linea)
-        elif e.codigo == 3:
-            print("ERROR 004 MNEMÓNICO"+e.op_name+"\tINEXISTENTE EN LINEA"+e.error_linea)
-        elif e.codigo == 4:
-            print("ERROR 003 ETIQUETA "+e.op_name+"\tINEXISTENTE EN LINEA"+e.error_linea)
-        elif e.codigo == 5:
-            print("ERROR 002 VARIABLE "+e.op_name+"INEXISTENTE "+e.error_linea)
-        elif e.codigo == 6:
-            print("ERROR 001 CONSTANTE"+e.op_name+"INEXISTENTE EN LINEA "+e.error_linea)
-        elif e.codigo == 7:
-            print("ERROR 005 INSTRUCCIÓN CARECE DE OPERANDO(S)"+e.error_linea)
-        elif e.codigo == 8:
-            print("ERROR 006 INSTRUCCIÓN NO LLEVA OPERANDO(S)"+e.error_linea)
+        print("ERROR 007: MAGNITUD DE OPERANDO ERRONEA"+str(programa.total_lineas)+' K')
+    except Errores as err:
+        if err.codigo == 1:
+            print("ERROR 007: MAGNITUD DE OPERANDO ERRONEA "+err.error_linea)
+        elif err.codigo == 2:
+            print("ERROR 008: SALTO RELATIVO MUY LEJANO"+err.error_linea)
+        elif err.codigo == 3:
+            print("ERROR 004 MNEMÓNICO"+err.op_name+"\tINEXISTENTE EN LINEA"+err.error_linea)
+        elif err.codigo == 4:
+            print("ERROR 003 ETIQUETA "+err.op_name+"\tINEXISTENTE EN LINEA"+err.error_linea)
+        elif err.codigo == 5:
+            print("ERROR 002 VARIABLE "+err.op_name+"INEXISTENTE "+err.error_linea)
+        elif err.codigo == 6:
+            print("ERROR 001 CONSTANTE"+err.op_name+"INEXISTENTE EN LINEA "+err.error_linea)
+        elif err.codigo == 7:
+            print("ERROR 005 INSTRUCCIÓN CARECE DE OPERANDO(S)"+err.error_linea)
+        elif err.codigo == 8:
+            print("ERROR 006 INSTRUCCIÓN NO LLEVA OPERANDO(S)"+err.error_linea)
   
     #etiquetas salto relativo
 for indice,entry in enumerate(programa.memoria):
     if entry in programa.salto_etiqueta and entry in programa.etiqueta:
-        if programa.salto_etiqueta[entry][0] in valuesREL.values() or len(programa.salto_etiqueta[entry]) == 5:
+        if programa.salto_etiqueta[entry][0] in dict_REL.values() or len(programa.salto_etiqueta[entry]) == 5:
             try:
-                programa.memoria[indice]= str(programa.salto_etiqueta[entry][0])+salto_Relativo(programa.etiqueta[entry],programa.salto_etiqueta[entry][3])
+                programa.memoria[indice]= str(programa.salto_etiqueta[entry][0])+fun_salto_relativo(programa.etiqueta[entry],programa.salto_etiqueta[entry][3])
             except Errores:
                 print("ERROR 008 SALTO RELATIVO MUY LEJANO"+str(programa.salto_etiqueta[entry][1]))
         else:
@@ -434,12 +429,17 @@ for key in programa.salto_etiqueta:
 #error 9
 if not programa.final:
     programa.errores += 1
-    print("ERROR 010 NO SE ENCUENTRA END")
+    print("ERROR 010: NO SE ENCUENTRA END")
     
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~ MUESTREO RESULTADOS ~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 print('\n')
-print('\n\t ====================RESULTADO======================')
+print('\n\t ~~~~~~~~~~~~~~~~~ RESULTADOS DE COMPILACION ~~~~~~~~~~~~~~~~~')
 print('\n\t Total de lineas: '+str(programa.total_lineas)+'\n\n\t Numero de errores: '+str(programa.errores))
 if programa.errores > 0:
+    input("Presione ENTER para continuar...")
     exit(1)
 
 '''Se compiló el programa en número de línea y el codigo objeto'''
@@ -448,57 +448,57 @@ aumentar_espacios=1
 
 
 try:
-    for indice,item in enumerate(programa.memoria):
+    for indice,item_codigo in enumerate(programa.memoria):
         indice+=aumentar_espacios
-        if item in programa.org_memoria:               #obtenemos una lista de tuplas con método item
+        if item_codigo in programa.org_memoria:               #obtenemos una lista de tuplas con método item_codigo
         ###Aquí se da el formato al archivo lst
-            file_LST.write(str(indice).ljust(4)+':'.ljust(8)+item.ljust(12)+':'+programa.cod_objeto[indice]+'\n')
-            programa.bullet = item
+            file_LST.write(str(indice).ljust(4)+':'.ljust(8)+item_codigo.ljust(12)+':'+programa.codigo_objeto[indice]+'\n')
+            programa.cambio_formato = item_codigo
         else:
-            if item in programa.var.values() and programa.bullet == '0':
-                file_LST.write(str(indice).ljust(4)+':'.ljust(8)+item.zfill(4)+':'.rjust(9)+programa.cod_objeto[indice]+'\n')
-            elif (programa.cod_objeto[indice][0]!=' ' and programa.cod_objeto[indice][0]!='\t') and len(quita_comentarios(programa.cod_objeto[indice])) == 1:
-                while (programa.cod_objeto[indice][0]!=' ' and programa.cod_objeto[indice][0]!='\t') and len(quita_comentarios(programa.cod_objeto[indice])) == 1:
-                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+''.ljust(12)+':'+programa.cod_objeto[indice]+'\n')  #ETIQUETAS
+            if item_codigo in programa.var.values() and programa.cambio_formato == '0':
+                file_LST.write(str(indice).ljust(4)+':'.ljust(8)+item_codigo.zfill(4)+':'.rjust(9)+programa.codigo_objeto[indice]+'\n')
+            elif (programa.codigo_objeto[indice][0]!=' ' and programa.codigo_objeto[indice][0]!='\t') and len(quita_comentarios(programa.codigo_objeto[indice])) == 1:
+                while (programa.codigo_objeto[indice][0]!=' ' and programa.codigo_objeto[indice][0]!='\t') and len(quita_comentarios(programa.codigo_objeto[indice])) == 1:
+                    file_LST.write(str(indice).ljust(4)+':'+programa.cambio_formato.ljust(7)+''.ljust(12)+':'+programa.codigo_objeto[indice]+'\n')  #ETIQUETAS
                     indice+=1
                     aumentar_espacios+=1
-                if(len(item)==2):
-                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(9)+':'+programa.cod_objeto[indice]+'\n')
-                    set_bullet(len(item))
-                elif(len(item)==4):
-                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(7)+':'+programa.cod_objeto[indice]+'\n')
-                    set_bullet(len(item))
-                elif(len(item)==8):
-                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(3)+':'+programa.cod_objeto[indice]+'\n')
-                    set_bullet(len(item))
+                if(len(item_codigo)==2):
+                    file_LST.write(str(indice).ljust(4)+':'+programa.cambio_formato.ljust(7)+'('+item_codigo+')'.ljust(9)+':'+programa.codigo_objeto[indice]+'\n')
+                    fun_cambio_formato(len(item_codigo))
+                elif(len(item_codigo)==4):
+                    file_LST.write(str(indice).ljust(4)+':'+programa.cambio_formato.ljust(7)+'('+item_codigo+')'.ljust(7)+':'+programa.codigo_objeto[indice]+'\n')
+                    fun_cambio_formato(len(item_codigo))
+                elif(len(item_codigo)==8):
+                    file_LST.write(str(indice).ljust(4)+':'+programa.cambio_formato.ljust(7)+'('+item_codigo+')'.ljust(3)+':'+programa.codigo_objeto[indice]+'\n')
+                    fun_cambio_formato(len(item_codigo))
 
                 else:
-                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(5)+':'+programa.cod_objeto[indice]+'\n')
-                    set_bullet(len(item))
+                    file_LST.write(str(indice).ljust(4)+':'+programa.cambio_formato.ljust(7)+'('+item_codigo+')'.ljust(5)+':'+programa.codigo_objeto[indice]+'\n')
+                    fun_cambio_formato(len(item_codigo))
             else:
-                if(len(item)==2):
-                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(9)+':'+programa.cod_objeto[indice]+'\n')
-                    set_bullet(len(item))
-                elif(len(item)==4):
-                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(7)+':'+programa.cod_objeto[indice]+'\n')
-                    set_bullet(len(item))
-                elif(len(item)==8):
-                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(3)+':'+programa.cod_objeto[indice]+'\n')
-                    set_bullet(len(item))
+                if(len(item_codigo)==2):
+                    file_LST.write(str(indice).ljust(4)+':'+programa.cambio_formato.ljust(7)+'('+item_codigo+')'.ljust(9)+':'+programa.codigo_objeto[indice]+'\n')
+                    fun_cambio_formato(len(item_codigo))
+                elif(len(item_codigo)==4):
+                    file_LST.write(str(indice).ljust(4)+':'+programa.cambio_formato.ljust(7)+'('+item_codigo+')'.ljust(7)+':'+programa.codigo_objeto[indice]+'\n')
+                    fun_cambio_formato(len(item_codigo))
+                elif(len(item_codigo)==8):
+                    file_LST.write(str(indice).ljust(4)+':'+programa.cambio_formato.ljust(7)+'('+item_codigo+')'.ljust(3)+':'+programa.codigo_objeto[indice]+'\n')
+                    fun_cambio_formato(len(item_codigo))
                 else:
-                    file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+'('+item+')'.ljust(5)+':'+programa.cod_objeto[indice]+'\n')
-                    set_bullet(len(item))
+                    file_LST.write(str(indice).ljust(4)+':'+programa.cambio_formato.ljust(7)+'('+item_codigo+')'.ljust(5)+':'+programa.codigo_objeto[indice]+'\n')
+                    fun_cambio_formato(len(item_codigo))
     indice+=1
-    while indice< len(programa.cod_objeto) and 'END' not in quita_comentarios(programa.cod_objeto[indice-1]):
-        if programa.cod_objeto[indice][0]!=' ' and programa.cod_objeto[indice][0]!='\t':
-          file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+item.ljust(12)+':'+programa.cod_objeto[indice]+'\n')
+    while indice< len(programa.codigo_objeto) and 'END' not in quita_comentarios(programa.codigo_objeto[indice-1]):
+        if programa.codigo_objeto[indice][0]!=' ' and programa.codigo_objeto[indice][0]!='\t':
+          file_LST.write(str(indice).ljust(4)+':'+programa.cambio_formato.ljust(7)+item_codigo.ljust(12)+':'+programa.codigo_objeto[indice]+'\n')
         else:
-            file_LST.write(str(indice).ljust(4)+':'+programa.bullet.ljust(7)+''.ljust(12)+':'+programa.cod_objeto[indice]+'\n')
+            file_LST.write(str(indice).ljust(4)+':'+programa.cambio_formato.ljust(7)+''.ljust(12)+':'+programa.codigo_objeto[indice]+'\n')
         indice+=1
 # Indica el error y el numero de linea donde sucedio
 except KeyError:
-    print('Keyerror in linea'+str(indice)+item+programa.cod_objeto[indice-1])
-#para tabla de simbolos
+    print('KeyError En linea'+str(indice)+item_codigo+programa.codigo_objeto[indice-1])
+# Para la tabla de simbolos presente en el LST
 symbol_table = programa.etiqueta.copy()
 symbol_table.update(programa.var)
 symbol_table.update(programa.salto_etiqueta)
@@ -511,36 +511,36 @@ for key in sorted(symbol_table):
     else:
         file_LST.write(key+'\t'+('' if len(programa.var[key])==4 else '00' )+programa.var[key]+'\n')
 
-bullet = 0
+cambio_formato = 0
 posicion = 1
-#Para darle formato al archivo .hex
-for item in programa.memoria:
-    if item in programa.org_memoria:
+#Para darle formato al archivo .s19
+for item_codigo in programa.memoria:
+    if item_codigo in programa.org_memoria:
         posicion = 1
-        bullet = item
-        file_HEX.write(('\n' if bullet != programa.org_memoria[0] else '<')+bullet+'> ')
-    elif bullet != 0:
-        while posicion<=16 and item != '':
-            file_HEX.write(item[:2]+' ')
-            item = item.replace(item[:2],'')
+        cambio_formato = item_codigo
+        file_s19.write(('\n' if cambio_formato != programa.org_memoria[0] else '<')+cambio_formato+'> ')
+    elif cambio_formato != 0:
+        while posicion<=16 and item_codigo != '':
+            file_s19.write(item_codigo[:2]+' ')
+            item_codigo = item_codigo.replace(item_codigo[:2],'')
             posicion += 1
         if posicion > 16:
             posicion = 1
-            bullet = str(hex(int(bullet,16)+16)[2:].upper()) #uppSer retorna la cadena en mayusculas en este caso el hexa
-            file_HEX.write('\n<'+bullet+'> ')
-            while item != '':
-                file_HEX.write(item[:2]+' ')
-                item = item.replace(item[:2],'')
+            cambio_formato = str(hex(int(cambio_formato,16)+16)[2:].upper()) #upper retorna el String en mayus, en este caso valores HEX
+            file_s19.write('\n<'+cambio_formato+'> ')
+            while item_codigo != '':
+                file_s19.write(item_codigo[:2]+' ')
+                item_codigo = item_codigo.replace(item_codigo[:2],'')
                 posicion += 1
 
-# Cierra los archivos ASC, LST y HEX una vez que terminó de leer / escribir
+# Cierra los archivos ASC, LST y S19 una vez que terminó de leer / escribir
 file_LST.close()
-file_HEX.close()
+file_s19.close()
 file_ASC.close()
 
-#--Genera el archivo .lst 
-#--Genera el archivo .hex 
-print('\n\t Archivo lst ' +programa.name.replace('.ASC','.lst')+' creado correctamente')  
-print('\n\t Archivo hex ' +programa.name.replace('.ASC','.hex')+' creado correctamente')  
+#--Genera el archivo .LST
+#--Genera el archivo .S19
+print('\n\t Archivo LST ' +programa.name_archivo.replace('.ASC','.lst')+' creado correctamente')  
+print('\n\t Archivo S19 ' +programa.name_archivo.replace('.ASC','.s19')+' creado correctamente')  
 print('\n\t ==================================================')
 print('\n')
